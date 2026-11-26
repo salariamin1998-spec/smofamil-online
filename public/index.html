@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>اسم و فامیل آنلاین</title>
+<style>
+:root{font-family:Tahoma,Arial,sans-serif;color:#172033;background:#f3f5fb}
+*{box-sizing:border-box}body{margin:0;padding:18px}.wrap{max-width:850px;margin:auto}
+header{text-align:center;padding:18px 8px}h1{margin:4px;color:#25366b;font-size:29px}
+.sub{color:#65708b}.card{background:white;border:1px solid #e4e8f2;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 6px 22px #25366b0b}
+input,button{font:inherit;border-radius:11px;padding:12px;border:1px solid #d9deea}
+input{width:100%;min-width:0;background:#fff}button{cursor:pointer;background:#3449a5;color:#fff;border:0;font-weight:bold;min-height:44px}
+button:disabled{opacity:.45;cursor:not-allowed}.row{display:flex;gap:9px;flex-wrap:wrap}.row>*{flex:1}
+.hidden{display:none!important}.muted{color:#737e98;font-size:13px}.code{font-size:25px;letter-spacing:4px;font-weight:bold;color:#3449a5}
+.players{display:flex;gap:8px;flex-wrap:wrap}.pill{background:#eef1fb;border-radius:30px;padding:8px 12px;font-size:14px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.letter{font-size:42px;color:#3449a5;font-weight:bold}.timer{font-size:24px;font-weight:bold}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.field label{display:block;margin:0 0 6px;font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:9px;border-bottom:1px solid #e8ebf3;text-align:right;overflow-wrap:anywhere}
+#chatlog{height:120px;overflow:auto;background:#f7f8fc;padding:9px;border-radius:10px;margin:8px 0;font-size:13px}
+.notice{color:#a04716;background:#fff5e9;padding:10px;border-radius:10px}
+@media(max-width:520px){body{padding:10px}.grid{grid-template-columns:1fr}h1{font-size:24px}.card{padding:14px}}
+</style>
+</head>
+<body><main class="wrap">
+<header><div style="font-size:36px">🎲</div><h1>اسم و فامیل آنلاین</h1><div class="sub">با دوستانت اتاق بساز و از هر جا بازی کن</div></header>
+<section id="home" class="card">
+  <label>نام بازیکن</label><input id="name" maxlength="18" placeholder="مثلاً علی">
+  <div class="row" style="margin-top:12px"><button id="create">ساخت اتاق جدید</button></div>
+  <div style="text-align:center;margin:15px 0;color:#8991a5">یا</div>
+  <div class="row"><input id="joincode" placeholder="کد اتاق"><button id="join">ورود به اتاق</button></div>
+  <p id="homeerr" class="notice hidden"></p>
+</section>
+<section id="lobby" class="card hidden">
+ <div class="top"><div><div class="muted">کد دعوت اتاق</div><div id="roomcode" class="code"></div></div><div><div class="muted">وضعیت</div><strong id="status">در انتظار بازیکنان</strong></div></div>
+ <p class="muted">کد را برای دوستانت بفرست تا وارد اتاق شوند. برای بازی حداقل دو نفر لازم است.</p>
+ <h3>بازیکنان</h3><div id="players" class="players"></div>
+ <div class="row" style="margin-top:16px"><select id="seconds" style="border:1px solid #d9deea;border-radius:11px;padding:10px"><option value="60">۶۰ ثانیه</option><option value="90">۹۰ ثانیه</option><option value="120">۱۲۰ ثانیه</option></select><button id="start">شروع بازی (فقط میزبان)</button></div>
+ <p id="lobbyerr" class="notice hidden"></p>
+</section>
+<section id="game" class="card hidden">
+ <div class="top"><div><div class="muted">حرف این دور</div><div id="letter" class="letter">ب</div></div><div><div class="muted">زمان باقی‌مانده</div><div id="timer" class="timer">۶۰</div></div></div>
+ <p class="muted">برای هر دسته کلمه‌ای با حرف مشخص‌شده بنویس.</p>
+ <form id="answers"><div id="fields" class="grid"></div><button id="submit" style="width:100%;margin-top:14px">ثبت پاسخ‌ها</button></form>
+ <p id="gamehint" class="muted"></p>
+</section>
+<section id="results" class="card hidden">
+ <h2>🏆 نتیجه این دور</h2><div id="resultletter" class="muted"></div><div style="overflow:auto"><table><thead><tr><th>رتبه</th><th>بازیکن</th><th>امتیاز دور</th><th>مجموع</th></tr></thead><tbody id="resultrows"></tbody></table></div>
+ <h3>پاسخ‌ها</h3><div id="answerdetails"></div>
+ <button id="again" style="width:100%;margin-top:14px">بازگشت به اتاق</button>
+</section>
+<section id="chat" class="card hidden"><h3>💬 گفت‌وگوی اتاق</h3><div id="chatlog"></div><form id="chatform" class="row"><input id="chatinput" placeholder="پیامت را بنویس…"><button>ارسال</button></form></section>
+<p class="muted" style="text-align:center">نسخه اولیه چندنفره • امتیازدهی خودکار بر اساس حرف اول و پاسخ تکراری</p>
+</main>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket=io();let roomCode="",isHost=false,endsAt=0,tick=null,cats=["اسم","فامیل","شهر","کشور","غذا","حیوان","اشیا","شغل"];
+const $=id=>document.getElementById(id);
+function show(id){["home","lobby","game","results","chat"].forEach(x=>$(x).classList.toggle("hidden",x!==id));if(id!=="home")$("chat").classList.remove("hidden");}
+function name(){return $("name").value.trim()||"بازیکن"}
+function err(id,msg){$(id).textContent=msg;$(id).classList.remove("hidden")}
+function update(r){$("roomcode").textContent=r.code;$("status").textContent=r.status==="waiting"?"در انتظار بازیکنان":r.status==="playing"?"در حال بازی":"نتایج آماده است";$("players").innerHTML="";r.players.forEach(p=>{let s=document.createElement("span");s.className="pill";s.textContent=p.name+(p.id===r.host?" 👑":"")+(p.submitted?" ✓":"");$("players").append(s)});isHost=r.host===socket.id;$("start").disabled=!isHost||r.players.length<2;}
+function enter(data){roomCode=data.code;show("lobby");update(data.room)}
+$("create").onclick=()=>socket.emit("room:create",{name:name()},r=>{if(r.ok)enter(r);else err("homeerr",r.error)});
+$("join").onclick=()=>socket.emit("room:join",{name:name(),code:$("joincode").value},r=>{if(r.ok)enter(r);else err("homeerr",r.error)});
+$("start").onclick=()=>socket.emit("game:start",{code:roomCode,seconds:$("seconds").value},r=>{if(!r.ok)err("lobbyerr",r.error)});
+function startGame(d){show("game");$("letter").textContent=d.letter;endsAt=d.endsAt;$("fields").innerHTML="";cats.forEach(c=>{let div=document.createElement("div");div.className="field";let label=document.createElement("label");label.textContent=c;let input=document.createElement("input");input.name=c;input.autocomplete="off";input.placeholder="با حرف "+d.letter;div.append(label,input);$("fields").append(div)});$("submit").disabled=false;$("gamehint").textContent="";clearInterval(tick);tick=setInterval(()=>{let n=Math.max(0,Math.ceil((endsAt-Date.now())/1000));$("timer").textContent=n+" ثانیه";if(!n)clearInterval(tick)},250)}
+$("answers").onsubmit=e=>{e.preventDefault();let a={};cats.forEach(c=>a[c]=$("answers").elements[c].value);socket.emit("game:submit",{code:roomCode,answers:a},r=>{if(!r.ok)$("gamehint").textContent=r.error;else{$("submit").disabled=true;$("gamehint").textContent="پاسخ‌ها ثبت شد؛ منتظر بقیه بازیکنان بمان."}})};
+function results(d){clearInterval(tick);show("results");$("resultletter").textContent="حرف این دور: "+d.letter;$("resultrows").innerHTML="";$("answerdetails").innerHTML="";d.results.forEach((p,i)=>{let tr=document.createElement("tr");[i+1,p.name,p.points,p.total].forEach(v=>{let td=document.createElement("td");td.textContent=v;tr.append(td)});$("resultrows").append(tr);let box=document.createElement("p");box.className="muted";box.textContent=p.name+" — "+cats.map(c=>c+": "+(p.answers[c]||"—")).join(" | ");$("answerdetails").append(box)})}
+$("again").onclick=()=>show("lobby");
+socket.on("room:update",r=>{if(r.code===roomCode){update(r);if(r.status==="results"&&$("results").classList.contains("hidden"))show("results")}});
+socket.on("game:started",startGame);socket.on("game:results",results);
+socket.on("chat:new",m=>{let p=document.createElement("p");p.textContent=m.name+": "+m.message;$("chatlog").append(p);$("chatlog").scrollTop=$("chatlog").scrollHeight});
+$("chatform").onsubmit=e=>{e.preventDefault();let m=$("chatinput").value.trim();if(m){socket.emit("chat:send",{code:roomCode,message:m});$("chatinput").value=""}};
+</script></body></html>
